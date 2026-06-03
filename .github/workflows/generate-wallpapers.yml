@@ -1,0 +1,45 @@
+name: Generate Wallpapers JSON
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'online-gallery/**'
+      - 'lumina/**'
+
+jobs:
+  generate-json:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Generate wallpapers.json
+        run: |
+          echo "Generating wallpapers.json..."
+          
+          GALLERY_FILES=$(find online-gallery -maxdepth 1 -type f -exec basename {} \; 2>/dev/null | jq -R -s -c 'split("\n")[:-1]') || GALLERY_FILES="[]"
+          LUMINA_FILES=$(find lumina -maxdepth 1 -type f -exec basename {} \; 2>/dev/null | jq -R -s -c 'split("\n")[:-1]') || LUMINA_FILES="[]"
+          
+          [ -z "$GALLERY_FILES" ] && GALLERY_FILES="[]"
+          [ -z "$LUMINA_FILES" ] && LUMINA_FILES="[]"
+          
+          jq -n \
+            --argjson gallery "$GALLERY_FILES" \
+            --argjson lumina "$LUMINA_FILES" \
+            '{gallery: $gallery, lumina: $lumina}' > wallpapers.json
+            
+      - name: Commit and Push changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add wallpapers.json
+          
+          if ! git diff --staged --quiet; then
+            git commit -m "Auto-generate wallpapers.json [skip ci]"
+            git push
+          fi
