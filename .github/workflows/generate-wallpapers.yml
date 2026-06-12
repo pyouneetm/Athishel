@@ -39,7 +39,7 @@ jobs:
         run: |
           echo "Generating uploaders.json..."
           echo "{}" > uploaders.json
-          for file in $(find Gallery lumina -type f 2>/dev/null); do
+          find Gallery lumina -type f -print0 2>/dev/null | while IFS= read -r -d '' file; do
             author=$(git log --diff-filter=A --format="%an" -1 -- "$file")
             [ -z "$author" ] && author="Unknown"
             filename=$(basename "$file")
