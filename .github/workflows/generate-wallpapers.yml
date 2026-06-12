@@ -24,8 +24,8 @@ jobs:
         run: |
           echo "Generating wallpapers.json..."
           
-          GALLERY_FILES=$(find Gallery -type f -exec basename {} \; 2>/dev/null | jq -R -s -c 'split("\n")[:-1]') || GALLERY_FILES="[]"
-          LUMINA_FILES=$(find lumina -type f -exec basename {} \; 2>/dev/null | jq -R -s -c 'split("\n")[:-1]') || LUMINA_FILES="[]"
+          GALLERY_FILES=$(cd Gallery && find . -type f 2>/dev/null | sed 's|^\./||' | jq -R -s -c 'split("\n")[:-1]') || GALLERY_FILES="[]"
+          LUMINA_FILES=$(cd lumina && find . -type f 2>/dev/null | sed 's|^\./||' | jq -R -s -c 'split("\n")[:-1]') || LUMINA_FILES="[]"
           
           [ -z "$GALLERY_FILES" ] && GALLERY_FILES="[]"
           [ -z "$LUMINA_FILES" ] && LUMINA_FILES="[]"
@@ -42,8 +42,8 @@ jobs:
           find Gallery lumina -type f -print0 2>/dev/null | while IFS= read -r -d '' file; do
             author=$(git log --diff-filter=A --format="%an" -1 -- "$file")
             [ -z "$author" ] && author="Unknown"
-            filename=$(basename "$file")
-            jq --arg f "$filename" --arg a "$author" '.[$f] = $a' uploaders.json > tmp.json && mv tmp.json uploaders.json
+            rel_path=$(echo "$file" | sed -e 's|^Gallery/||' -e 's|^lumina/||')
+            jq --arg f "$rel_path" --arg a "$author" '.[$f] = $a' uploaders.json > tmp.json && mv tmp.json uploaders.json
           done
 
       - name: Commit and Push changes
