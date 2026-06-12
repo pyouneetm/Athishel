@@ -1,11 +1,11 @@
-name: Generate Wallpapers JSON
+name: Generate JSON
 
 on:
   push:
     branches:
       - main
     paths:
-      - 'online-gallery/**'
+      - 'Gallery/**'
       - 'lumina/**'
 
 jobs:
@@ -17,13 +17,15 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Generate wallpapers.json
         run: |
           echo "Generating wallpapers.json..."
           
-          GALLERY_FILES=$(find online-gallery -maxdepth 1 -type f -exec basename {} \; 2>/dev/null | jq -R -s -c 'split("\n")[:-1]') || GALLERY_FILES="[]"
-          LUMINA_FILES=$(find lumina -maxdepth 1 -type f -exec basename {} \; 2>/dev/null | jq -R -s -c 'split("\n")[:-1]') || LUMINA_FILES="[]"
+          GALLERY_FILES=$(find Gallery -type f -exec basename {} \; 2>/dev/null | jq -R -s -c 'split("\n")[:-1]') || GALLERY_FILES="[]"
+          LUMINA_FILES=$(find lumina -type f -exec basename {} \; 2>/dev/null | jq -R -s -c 'split("\n")[:-1]') || LUMINA_FILES="[]"
           
           [ -z "$GALLERY_FILES" ] && GALLERY_FILES="[]"
           [ -z "$LUMINA_FILES" ] && LUMINA_FILES="[]"
@@ -33,13 +35,24 @@ jobs:
             --argjson lumina "$LUMINA_FILES" \
             '{gallery: $gallery, lumina: $lumina}' > wallpapers.json
             
+      - name: Generate uploaders.json
+        run: |
+          echo "Generating uploaders.json..."
+          echo "{}" > uploaders.json
+          for file in $(find Gallery lumina -type f 2>/dev/null); do
+            author=$(git log --diff-filter=A --format="%an" -1 -- "$file")
+            [ -z "$author" ] && author="Unknown"
+            filename=$(basename "$file")
+            jq --arg f "$filename" --arg a "$author" '.[$f] = $a' uploaders.json > tmp.json && mv tmp.json uploaders.json
+          done
+
       - name: Commit and Push changes
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add wallpapers.json
+          git add wallpapers.json uploaders.json
           
           if ! git diff --staged --quiet; then
-            git commit -m "Auto-generate wallpapers.json [skip ci]"
+            git commit -m "Auto-generate JSON files [skip ci]"
             git push
           fi
